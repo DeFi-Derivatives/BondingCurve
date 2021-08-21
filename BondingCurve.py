@@ -184,13 +184,12 @@ class BondingCurve(Library):
 
         sp.set_type(
             params, sp.TRecord(
-                recipent = sp.TAddress,
+                recipient = sp.TAddress,
                 tokenAmount = sp.TNat
             )
         )
 
-        xtzAmount = sp.local('xtzAmount', sp.nat(0))
-        tokenAmount = sp.local('tokenAmount',sp.nat(0))
+        Library.TransferFATokens(sp.sender, sp.self_address, params.tokenAmount, self.data.governanceContract)
 
         # Burn Call
         burnParam = sp.record(
@@ -208,8 +207,32 @@ class BondingCurve(Library):
 
         # Transfer Tokens 
 
-        # Library.TransferToken(sp.self_address, params.recipient, tokenAmount.value)
+        initialTotalSupply = sp.local('initialTotalSupply', self.data.totalSupply)
 
+        initialTotalSupply.value *= initialTotalSupply.value 
+
+        finalTotalSupply = sp.local('finalTotalSupply', sp.as_nat(self.data.totalSupply - params.tokenAmount))
+
+        finalTotalSupply.value *= finalTotalSupply.value
+
+        xtzRequired = sp.local('xtzRequired', sp.as_nat(initialTotalSupply.value - finalTotalSupply.value))
+
+        xtzRequired.value /= XTZ_Constant
+
+        # send XTZ 
+        sp.send(params.recipient, sp.utils.nat_to_mutez(xtzRequired.value))
+
+        # KUSD checks 
+
+        initialTotalSupply.value *= initialTotalSupply.value 
+
+        finalTotalSupply.value *= finalTotalSupply.value
+
+        kusdRequired = sp.local('kusdRequired', sp.as_nat(finalTotalSupply.value - initialTotalSupply.value))
+
+        kusdRequired.value /= KUSD_Constant
+
+        Library.TransferFATokens(sp.self_address, params.recipient, kusdRequired.value, self.data.kusdAddress)
 
     @sp.entry_point
     def changeBaker(self,bakerAddress):
