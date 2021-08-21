@@ -237,7 +237,7 @@ class BondingCurve(Library):
 
         finalTotalSupply.value *= finalTotalSupply.value
 
-        kusdRequired = sp.local('kusdRequired', sp.as_nat(finalTotalSupply.value - initialTotalSupply.value))
+        kusdRequired = sp.local('kusdRequired', sp.as_nat(initialTotalSupply.value - finalTotalSupply.value))
 
         kusdRequired.value /= KUSD_Constant
 
@@ -315,3 +315,8 @@ def test():
     amm.buyGovernanceToken(recipient = alice.address, tokenAmount = 10 * TOKEN_DECIMAL).run(sender = alice, amount = sp.tez(1))
 
     amm.buyGovernanceToken(recipient = alice.address, tokenAmount = 10 * TOKEN_DECIMAL).run(sender = alice, amount = sp.tez(1))
+
+    amm.buyGovernanceToken(recipient = alice.address, tokenAmount = 10 * TOKEN_DECIMAL).run(sender = alice, amount = sp.tez(1))
+
+    amm.sellGovernanceToken(recipient = alice.address, tokenAmount = 10 * TOKEN_DECIMAL).run(sender = alice, amount = sp.tez(1))
+    
