@@ -72,12 +72,12 @@ class Library(ErrorMessages,sp.Contract):
 class BondingCurve(Library):
 
 
-    def __init__(self,_adminAddress,_governanceContract,_developerFundAddress,_kusdAddress):
+    def __init__(self,_adminAddress,_governanceContract,_developerFundAddress,_usdAddress):
 
         self.init(
             adminAddress = _adminAddress,
             governanceContract = _governanceContract,
-            kusdAddress = _kusdAddress,
+            usdAddress = _usdAddress,
             xtzDeposited = sp.nat(0),
             tokenDeposited = sp.nat(0),
             totalSupply = sp.nat(0),
@@ -117,7 +117,7 @@ class BondingCurve(Library):
         # Mint Call
 
         mintParam = sp.record(
-            address = sp.self_address,
+            address = params.recipient,
             value = params.tokenAmount
         )
 
@@ -128,8 +128,6 @@ class BondingCurve(Library):
             ).open_some()
 
         sp.transfer(mintParam, sp.mutez(0), mintHandle)
-
-        Library.TransferFATokens(sp.self_address, params.recipient, params.tokenAmount, self.data.governanceContract)
 
 
     def buyXTZAmount(self,tokenAmount): 
@@ -170,17 +168,17 @@ class BondingCurve(Library):
 
         supplyCube.value *= supplyCube.value * supplyCube.value
 
-        kusdRequired = sp.local('kusdRequired', sp.nat(0))
+        usdRequired = sp.local('usdRequired', sp.nat(0))
 
-        kusdRequired.value = sp.as_nat(supplyCube.value - tokenCube.value)
+        usdRequired.value = sp.as_nat(supplyCube.value - tokenCube.value)
 
-        # kusdRequired.value /= 3 
+        # usdRequired.value /= 3 
 
-        kusdRequired.value /= KUSD_Constant
+        usdRequired.value /= KUSD_Constant
 
-        Library.TransferFATokens(sp.sender, sp.self_address, kusdRequired.value, self.data.kusdAddress)
+        Library.TransferFATokens(sp.sender, sp.self_address, usdRequired.value, self.data.usdAddress)
 
-        self.data.tokenDeposited += kusdRequired.value
+        self.data.tokenDeposited += usdRequired.value
 
     @sp.entry_point
     def sellGovernanceToken(self,params):
@@ -191,9 +189,7 @@ class BondingCurve(Library):
                 tokenAmount = sp.TNat
             )
         )
-
-        Library.TransferFATokens(sp.sender, sp.self_address, params.tokenAmount, self.data.governanceContract)
-
+        
         # Burn Call
         burnParam = sp.record(
             address = sp.sender,
@@ -237,17 +233,17 @@ class BondingCurve(Library):
 
         finalTotalSupply.value *= finalTotalSupply.value
 
-        kusdRequired = sp.local('kusdRequired', sp.as_nat(initialTotalSupply.value - finalTotalSupply.value))
+        usdRequired = sp.local('usdRequired', sp.as_nat(initialTotalSupply.value - finalTotalSupply.value))
 
-        kusdRequired.value /= KUSD_Constant
+        usdRequired.value /= KUSD_Constant
 
-        devKusdFee = sp.local('devKusdFee', kusdRequired.value / self.data.feeRate)
+        devKusdFee = sp.local('devKusdFee', usdRequired.value / self.data.feeRate)
 
         self.data.devKusdFee += devKusdFee.value
 
-        kusdRequired.value = sp.as_nat(kusdRequired.value - devKusdFee.value)
+        usdRequired.value = sp.as_nat(usdRequired.value - devKusdFee.value)
 
-        Library.TransferFATokens(sp.self_address, params.recipient, kusdRequired.value, self.data.kusdAddress)
+        Library.TransferFATokens(sp.self_address, params.recipient, usdRequired.value, self.data.usdAddress)
 
     @sp.entry_point
     def withdrawDevFee(self): 
@@ -258,7 +254,7 @@ class BondingCurve(Library):
 
         sp.if self.data.devKusdFee > 0: 
 
-            Library.TransferFATokens(sp.self_address, self.data.developerFundAddress, self.data.devKusdFee, self.data.kusdAddress)
+            Library.TransferFATokens(sp.self_address, self.data.developerFundAddress, self.data.devKusdFee, self.data.usdAddress)
 
         self.data.devXTZFee = 0 
 
@@ -293,13 +289,13 @@ def test():
     scenario = sp.test_scenario()
     
     # Deployment Accounts 
-    adminAddress = sp.test_account("adminAddress")
+    adminAddress = sp.address("tz1UXXDoVgKxZHG8i2reA4FRba4rAFXKmgzL")
 
-    governanceTokenContract = sp.test_account("governanceTokenContract")
+    governanceTokenContract = sp.address("KT19H1gYADtpgamRutqnDJ663jKFN7y18bgH")
 
-    kusdAddress = sp.test_account("kusdAddress")
+    usdAddress = sp.address("KT1PUYgyTfvuPZUhtN8k3rscXJvQfi9midQk")
 
-    developerAddress = sp.test_account("developerAddress")
+    developerAddress = sp.address("tz1UXXDoVgKxZHG8i2reA4FRba4rAFXKmgzL")
 
     # Test accounts 
 
@@ -307,7 +303,7 @@ def test():
 
     bob = sp.test_account("bob")
 
-    amm = BondingCurve(adminAddress.address, governanceTokenContract.address,kusdAddress.address, developerAddress.address)
+    amm = BondingCurve(adminAddress, governanceTokenContract, developerAddress, usdAddress)
     scenario += amm 
 
     TOKEN_DECIMAL = 10 ** 18 

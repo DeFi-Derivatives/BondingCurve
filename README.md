@@ -32,3 +32,7 @@ funds recieved from staking for the Development of the Project.
 USD Test Token - KT1PUYgyTfvuPZUhtN8k3rscXJvQfi9midQk
 
 USD - XTZ Dex Contract - KT1XEJKYWh97LM9GgCcC4aSY9V513pvjqEQ4
+
+KT19H1gYADtpgamRutqnDJ663jKFN7y18bgH - DAO Token Contract ( Flash Loan Resistant)
+
+KT1PjLphnnuAVYzHtPQx32Mh2NfbSedYHT5L - Bonding Curve Contract 
