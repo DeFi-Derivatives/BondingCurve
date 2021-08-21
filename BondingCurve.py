@@ -2,7 +2,7 @@ import smartpy as sp
 
 XTZ_Constant = 10 ** 34
 
-KUSD_Constant = 10 ** 37
+usd_Constant = 10 ** 37
 
 class ErrorMessages(sp.Contract): 
 
@@ -84,7 +84,7 @@ class BondingCurve(Library):
             developerFundAddress = _developerFundAddress,
             feeRate = sp.nat(10000),
             devXTZFee = sp.nat(0),
-            devKusdFee = sp.nat(0)
+            devusdFee = sp.nat(0)
         ) 
 
 
@@ -109,7 +109,7 @@ class BondingCurve(Library):
         # xtz Amount check and transfer
         self.buyXTZAmount(params.tokenAmount)
 
-        # Kusd Amount check and transfer 
+        # usd Amount check and transfer 
         self.buyUsdAmount(params.tokenAmount)
 
         self.data.totalSupply += params.tokenAmount
@@ -174,7 +174,7 @@ class BondingCurve(Library):
 
         # usdRequired.value /= 3 
 
-        usdRequired.value /= KUSD_Constant
+        usdRequired.value /= usd_Constant
 
         Library.TransferFATokens(sp.sender, sp.self_address, usdRequired.value, self.data.usdAddress)
 
@@ -227,21 +227,21 @@ class BondingCurve(Library):
 
         self.data.devXTZFee += devXTZFee.value
 
-        # KUSD checks 
+        # usd checks 
 
-        initialTotalSupply.value *= initialTotalSupply.value 
+        initialTotalSupply.value *= self.data.totalSupply 
 
-        finalTotalSupply.value *= finalTotalSupply.value
+        finalTotalSupply.value *= sp.as_nat(self.data.totalSupply - params.tokenAmount)
 
         usdRequired = sp.local('usdRequired', sp.as_nat(initialTotalSupply.value - finalTotalSupply.value))
 
-        usdRequired.value /= KUSD_Constant
+        usdRequired.value /= usd_Constant
 
-        devKusdFee = sp.local('devKusdFee', usdRequired.value / self.data.feeRate)
+        devusdFee = sp.local('devusdFee', usdRequired.value / self.data.feeRate)
 
-        self.data.devKusdFee += devKusdFee.value
+        self.data.devusdFee += devusdFee.value
 
-        usdRequired.value = sp.as_nat(usdRequired.value - devKusdFee.value)
+        usdRequired.value = sp.as_nat(usdRequired.value - devusdFee.value)
 
         Library.TransferFATokens(sp.self_address, params.recipient, usdRequired.value, self.data.usdAddress)
 
@@ -252,13 +252,13 @@ class BondingCurve(Library):
 
             sp.send(self.data.developerFundAddress,sp.utils.nat_to_mutez(self.data.devXTZFee))
 
-        sp.if self.data.devKusdFee > 0: 
+        sp.if self.data.devusdFee > 0: 
 
-            Library.TransferFATokens(sp.self_address, self.data.developerFundAddress, self.data.devKusdFee, self.data.usdAddress)
+            Library.TransferFATokens(sp.self_address, self.data.developerFundAddress, self.data.devusdFee, self.data.usdAddress)
 
         self.data.devXTZFee = 0 
 
-        self.data.devKusdFee = 0 
+        self.data.devusdFee = 0 
 
     @sp.entry_point
     def changeBaker(self,bakerAddress):
@@ -291,7 +291,7 @@ def test():
     # Deployment Accounts 
     adminAddress = sp.address("tz1UXXDoVgKxZHG8i2reA4FRba4rAFXKmgzL")
 
-    governanceTokenContract = sp.address("KT19H1gYADtpgamRutqnDJ663jKFN7y18bgH")
+    governanceTokenContract = sp.address("KT1EUsLLpEGoDSNGesKnfM7od66pXtAfrL8D")
 
     usdAddress = sp.address("KT1PUYgyTfvuPZUhtN8k3rscXJvQfi9midQk")
 
@@ -308,11 +308,8 @@ def test():
 
     TOKEN_DECIMAL = 10 ** 18 
 
-    amm.buyGovernanceToken(recipient = alice.address, tokenAmount = 10 * TOKEN_DECIMAL).run(sender = alice, amount = sp.tez(1))
+    amm.buyGovernanceToken(recipient = alice.address, tokenAmount = 1 * TOKEN_DECIMAL).run(sender = alice, amount = sp.tez(1))
 
-    amm.buyGovernanceToken(recipient = alice.address, tokenAmount = 10 * TOKEN_DECIMAL).run(sender = alice, amount = sp.tez(1))
+    amm.buyGovernanceToken(recipient = alice.address, tokenAmount = 1 * TOKEN_DECIMAL).run(sender = alice, amount = sp.tez(1))
 
-    amm.buyGovernanceToken(recipient = alice.address, tokenAmount = 10 * TOKEN_DECIMAL).run(sender = alice, amount = sp.tez(1))
-
-    amm.sellGovernanceToken(recipient = alice.address, tokenAmount = 10 * TOKEN_DECIMAL).run(sender = alice, amount = sp.tez(1))
-    
+    amm.sellGovernanceToken(recipient = alice.address, tokenAmount = 1 * TOKEN_DECIMAL).run(sender = alice, amount = sp.tez(1))
