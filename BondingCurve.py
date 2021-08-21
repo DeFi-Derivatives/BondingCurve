@@ -81,7 +81,10 @@ class BondingCurve(Library):
             xtzDeposited = sp.nat(0),
             tokenDeposited = sp.nat(0),
             totalSupply = sp.nat(0),
-            developerFundAddress = _developerFundAddress
+            developerFundAddress = _developerFundAddress,
+            feeRate = sp.nat(10000),
+            devXTZFee = sp.nat(0),
+            devKusdFee = sp.nat(0)
         ) 
 
 
@@ -219,8 +222,14 @@ class BondingCurve(Library):
 
         xtzRequired.value /= XTZ_Constant
 
+        devXTZFee = sp.local('devXTZFee', xtzRequired.value / self.data.feeRate)
+
+        xtzRequired.value = sp.as_nat(xtzRequired.value - devXTZFee.value)
+
         # send XTZ 
         sp.send(params.recipient, sp.utils.nat_to_mutez(xtzRequired.value))
+
+        self.data.devXTZFee += devXTZFee.value
 
         # KUSD checks 
 
@@ -232,7 +241,28 @@ class BondingCurve(Library):
 
         kusdRequired.value /= KUSD_Constant
 
+        devKusdFee = sp.local('devKusdFee', kusdRequired.value / self.data.feeRate)
+
+        self.data.devKusdFee += devKusdFee.value
+
+        kusdRequired.value = sp.as_nat(kusdRequired.value - devKusdFee.value)
+
         Library.TransferFATokens(sp.self_address, params.recipient, kusdRequired.value, self.data.kusdAddress)
+
+    @sp.entry_point
+    def withdrawDevFee(self): 
+
+        sp.if self.data.devXTZFee > 0: 
+
+            sp.send(self.data.developerFundAddress,sp.utils.nat_to_mutez(self.data.devXTZFee))
+
+        sp.if self.data.devKusdFee > 0: 
+
+            Library.TransferFATokens(sp.self_address, self.data.developerFundAddress, self.data.devKusdFee, self.data.kusdAddress)
+
+        self.data.devXTZFee = 0 
+
+        self.data.devKusdFee = 0 
 
     @sp.entry_point
     def changeBaker(self,bakerAddress):
@@ -247,6 +277,14 @@ class BondingCurve(Library):
         sp.verify(sp.sender == self.data.adminAddress, ErrorMessages.NotAdmin)
 
         self.data.developerFundAddress = developerAddress
+
+
+    @sp.entry_point
+    def changeFeeRate(self,_feeRate): 
+
+        sp.verify(sp.sender == self.data.adminAddress, ErrorMessages.NotAdmin)
+
+        self.data.feeRate = _feeRate
 
 
 @sp.add_test(name = "Bonding Curve Contract")
