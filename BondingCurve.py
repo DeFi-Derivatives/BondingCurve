@@ -1,5 +1,9 @@
 import smartpy as sp 
 
+XTZ_Constant = 10 ** 34
+
+KUSD_Constant = 10 ** 37
+
 class ErrorMessages(sp.Contract): 
 
     def make(s):
@@ -68,11 +72,12 @@ class Library(ErrorMessages,sp.Contract):
 class BondingCurve(Library):
 
 
-    def __init__(self,_adminAddress,_governanceContract,_developerFundAddress):
+    def __init__(self,_adminAddress,_governanceContract,_developerFundAddress,_kusdAddress):
 
         self.init(
             adminAddress = _adminAddress,
             governanceContract = _governanceContract,
+            kusdAddress = _kusdAddress,
             xtzDeposited = sp.nat(0),
             tokenDeposited = sp.nat(0),
             totalSupply = sp.nat(0),
@@ -98,15 +103,18 @@ class BondingCurve(Library):
             tokenAmount = sp.TNat
         ))
 
+        # xtz Amount check and transfer
+        self.buyXTZAmount(params.tokenAmount)
 
+        # Kusd Amount check and transfer 
+        self.buyUsdAmount(params.tokenAmount)
 
-        # Transfer Tokens 
-        # Library.TransferToken(sp.sender, sp.self_address)
+        self.data.totalSupply += params.tokenAmount
 
         # Mint Call
 
         mintParam = sp.record(
-            address = params.recipient,
+            address = sp.self_address,
             value = params.tokenAmount
         )
 
@@ -117,6 +125,9 @@ class BondingCurve(Library):
             ).open_some()
 
         sp.transfer(mintParam, sp.mutez(0), mintHandle)
+
+        Library.TransferFATokens(sp.self_address, params.recipient, params.tokenAmount, self.data.governanceContract)
+
 
     def buyXTZAmount(self,tokenAmount): 
 
@@ -132,7 +143,9 @@ class BondingCurve(Library):
 
         xtzRequired.value = sp.as_nat(supplyAfterPurchase.value - tokenSquare.value)
 
-        xtzRequired.value = xtzRequired / 2 
+        # xtzRequired.value /= 2 
+
+        xtzRequired.value /= XTZ_Constant
 
         sp.verify(sp.utils.mutez_to_nat(sp.amount) >= xtzRequired.value, ErrorMessages.InsufficientXTZ)
 
@@ -140,13 +153,31 @@ class BondingCurve(Library):
 
         sp.if remainingBalance.value > 0: 
 
-            sp.send(sp.sender, sp.nat_to_mutez(remainingBalance.value))
+            sp.send(sp.sender, sp.utils.nat_to_mutez(remainingBalance.value))
 
+        self.data.xtzDeposited += xtzRequired.value
 
     def buyUsdAmount(self, tokenAmount):
-        pass 
+        
+        tokenCube = sp.local('tokenCube', self.data.totalSupply)
 
+        tokenCube.value *= tokenCube.value * tokenCube.value 
 
+        supplyCube = sp.local('supplyCube', self.data.totalSupply + tokenAmount)
+
+        supplyCube.value *= supplyCube.value * supplyCube.value
+
+        kusdRequired = sp.local('kusdRequired', sp.nat(0))
+
+        kusdRequired.value = sp.as_nat(supplyCube.value - tokenCube.value)
+
+        # kusdRequired.value /= 3 
+
+        kusdRequired.value /= KUSD_Constant
+
+        Library.TransferFATokens(sp.sender, sp.self_address, kusdRequired.value, self.data.kusdAddress)
+
+        self.data.tokenDeposited += kusdRequired.value
 
     @sp.entry_point
     def sellGovernanceToken(self,params):
@@ -205,7 +236,21 @@ def test():
 
     governanceTokenContract = sp.test_account("governanceTokenContract")
 
+    kusdAddress = sp.test_account("kusdAddress")
+
     developerAddress = sp.test_account("developerAddress")
 
-    amm = BondingCurve(adminAddress.address, governanceTokenContract.address, developerAddress.address)
+    # Test accounts 
+
+    alice = sp.test_account("alice")
+
+    bob = sp.test_account("bob")
+
+    amm = BondingCurve(adminAddress.address, governanceTokenContract.address,kusdAddress.address, developerAddress.address)
     scenario += amm 
+
+    TOKEN_DECIMAL = 10 ** 18 
+
+    amm.buyGovernanceToken(recipient = alice.address, tokenAmount = 10 * TOKEN_DECIMAL).run(sender = alice, amount = sp.tez(1))
+
+    amm.buyGovernanceToken(recipient = alice.address, tokenAmount = 10 * TOKEN_DECIMAL).run(sender = alice, amount = sp.tez(1))
